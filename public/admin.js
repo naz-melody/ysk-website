@@ -36,7 +36,7 @@ async function compress(file){if(file.size>8*1024*1024)throw Error('元画像は
 $('#login-form').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('#password').value})});$('#password').value='';await enter();message('ログインしました。');}catch(e){message(e.message,true);}finally{b.disabled=false;}};
 async function enter(){try{await api('/api/admin/session');}catch(error){if(/ログイン|セッション/.test(error.message))throw Error('ログイン状態を保持できませんでした。サーバーを更新して npm run dev:cloudflare で起動し、同じlocalhostのURLから操作してください。');throw error;}await load();$('#setup-panel').hidden=true;$('#login-panel').hidden=true;$('#dashboard').hidden=false;editMember();editNews();editCircle();}
 $('#logout').onclick=()=>task(async()=>{if(dirty&&!confirm('保存前の変更を破棄してログアウトしますか？'))return;await api('/api/admin/logout',{method:'POST'});dirty=false;showLogin();message('ログアウトしました。');});
-document.querySelectorAll('[data-panel]').forEach(b=>b.onclick=()=>{if(dirty&&!confirm('保存前の変更を破棄して移動しますか？'))return;dirty=false;for(const x of document.querySelectorAll('[data-panel]')){x.setAttribute('aria-pressed',String(x===b));$('#panel-'+x.dataset.panel).hidden=x!==b;}if(b.dataset.panel==='settings')setForm($('#settings-form'),state.settings);if(b.dataset.panel==='members')editMember();if(b.dataset.panel==='news')editNews();if(b.dataset.panel==='circles')editCircle();if(b.dataset.panel==='security')$('#password-form').reset();});
+document.querySelectorAll('[data-panel]').forEach(b=>b.onclick=()=>{if(dirty&&!confirm('保存前の変更を破棄して移動しますか？'))return;dirty=false;for(const x of document.querySelectorAll('[data-panel]')){x.setAttribute('aria-pressed',String(x===b));$('#panel-'+x.dataset.panel).hidden=x!==b;}if(b.dataset.panel==='settings')setForm($('#settings-form'),state.settings);if(b.dataset.panel==='members')editMember();if(b.dataset.panel==='news')editNews();if(b.dataset.panel==='circles')editCircle();});
 $('#settings-form').onsubmit=e=>{e.preventDefault();const data=formValues(e.currentTarget);data.sample=e.currentTarget.elements.sample.checked;task(async()=>{await save({...state,settings:data});message('紹介とリンクを保存しました。');});};
 $('#member-form').onsubmit=async e=>{e.preventDefault();const values=formValues(e.currentTarget);const file=$('#icon-file').files[0];const remove=$('#remove-icon').checked;values.id||=crypto.randomUUID();values.rank=Number(values.rank);values.alts=values.alts.split('\n').map(x=>x.trim()).filter(Boolean);task(async()=>{const image=file?await compress(file):null;const next=structuredClone(state);const i=next.members.findIndex(x=>x.id===values.id);if(i<0)next.members.push(values);else next.members[i]=values;await save(next);editMember(values);try{if(image){await api('/api/admin/icons/'+values.id,{method:'PUT',headers:{'Content-Type':image.type},body:image});if(!icons.includes(values.id))icons.push(values.id);}else if(remove){await api('/api/admin/icons/'+values.id,{method:'DELETE'});icons=icons.filter(x=>x!==values.id);}editMember(values);message('メンバーを保存しました。');}catch(err){message('メンバーの文章は保存しましたが、画像の変更に失敗しました。画像を選び直して保存してください。\n'+err.message,true);}});};
 $('#news-form').onsubmit=e=>{e.preventDefault();const values=formValues(e.currentTarget);values.id||=crypto.randomUUID();values.pinned=e.currentTarget.elements.pinned.checked;task(async()=>{const next=structuredClone(state);const i=next.news.findIndex(x=>x.id===values.id);if(i<0)next.news.push(values);else next.news[i]=values;await save(next);editNews(values);message('お知らせを保存しました。');});};
@@ -55,14 +55,6 @@ $('#setup-form').onsubmit=async e=>{
     await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
     await enter();message('初期設定が完了しました。紹介やメンバーを編集できます。');
   }catch(error){message(error.message,true);}finally{button.disabled=false;}
-};
-$('#password-form').onsubmit=e=>{
-  e.preventDefault();const password=$('#new-password').value;
-  if(password!==$('#new-password-confirm').value){message('パスワードが一致しません。',true);return;}
-  task(async()=>{
-    await api('/api/admin/password',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
-    $('#password-form').reset();dirty=false;showLogin();message('パスワードを変更しました。新しいパスワードでログインしてください。');
-  });
 };
 $('#reload-content').onclick=()=>task(async()=>{
   if(dirty&&!confirm('保存前の変更を破棄して最新の内容を読み込みますか？'))return;
