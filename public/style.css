@@ -16,3 +16,4 @@
 @media(max-width:1150px){.header nav a:not(.nav-join){display:none}.header nav{gap:0}}
 @media(max-width:700px){.header{gap:8px}.header nav{display:none}.header .admin-entry{font-size:9px;padding:8px 10px;margin-left:auto}.header .brand{gap:5px}.header .brand strong{font-size:11px}.header .brand small{font-size:7px;max-width:170px}.circles-grid{grid-template-columns:1fr;gap:20px}.circle-card{padding:20px 23px 25px}.circle-art{height:215px;max-width:290px}.circle-animal{height:190px}.circle-copy h3{font-size:27px}}
 @media(prefers-reduced-motion:reduce){.circle-animal,.sleep-zzz,.forest-leaf{animation:none}}
+.circle-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.circle-page-link{margin-top:12px;gap:10px}.circle-copy h3{overflow-wrap:anywhere}

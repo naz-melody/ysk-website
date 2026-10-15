@@ -16,7 +16,7 @@ test('public sample available; unauthenticated edits rejected',async()=>{const e
 test('origin, invalid passwords, rate limiting, missing secret',async()=>{const env=await setup();assert.equal((await call(env,'/api/login','POST',{password:'wrong'},null,'https://evil.test')).status,403);for(let i=0;i<5;i++)assert.equal((await call(env,'/api/login','POST',{password:'wrong'})).status,401);assert.equal((await call(env,'/api/login','POST',{password:'test-password-only'})).status,429);assert.equal(env.DB.db.prepare('SELECT count(*) AS n FROM sessions').get().n,0);delete env.ADMIN_PASSWORD_HASH;assert.equal((await call(env,'/api/login','POST',{password:'anything'})).status,503);});
 test('content CRUD persists, optimistic conflict rejects overwrite',async()=>{const env=await setup(),cookie=await login(env);const data=structuredClone(sample);data.settings.description='Updated introduction';data.members.push({id:'new-1',name:'New member',rank:1,alts:['Second'],bio:'bio',avatar:'fox',color:'blue'});data.news=[];let r=await call(env,'/api/admin/content','PUT',{revision:0,data},cookie);assert.equal(r.status,200);assert.equal((await r.json()).revision,1);assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,409);data.members[0].rank=4;data.members=data.members.filter(m=>m.id!=='new-1');r=await call(env,'/api/admin/content','PUT',{revision:1,data},cookie);assert.equal(r.status,200);const stored=await (await call(env,'/api/public')).json();assert.equal(stored.revision,2);assert.equal(stored.data.members.length,6);assert.equal(stored.data.members[0].rank,4);assert.equal(stored.data.settings.description,'Updated introduction');assert.deepEqual(stored.data.news,[]);assert.equal((await call(env,'/api/admin/content','PUT',{revision:2,data},cookie,'https://evil.test')).status,403);});
 test('validation rejects bad rank, duplicate IDs, unsafe URLs, oversized body',async()=>{const env=await setup(),cookie=await login(env);for(const change of [d=>d.members[0].rank=9,d=>d.members[1].id=d.members[0].id,d=>d.settings.discordUrl='javascript:alert(1)',d=>d.settings.giftUrl='https://user:pw@example.com',d=>d.members[0].alts=Array(11).fill('x')]){const data=structuredClone(sample);change(data);assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,400);}assert.equal((await call(env,'/api/admin/content','PUT',{padding:'x'.repeat(460000)},cookie)).status,413);assert.throws(()=>validateContent(null));});
-test('icons require auth, validate magic and size, persist and remove with member',async()=>{const env=await setup(),cookie=await login(env);const data=structuredClone(sample);await call(env,'/api/admin/content','PUT',{revision:0,data},cookie);const bytes=new TextEncoder().encode('RIFF1234WEBPimage');assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',bytes)).status,401);assert.equal((await call(env,'/api/admin/icons/missing','PUT',bytes,cookie)).status,404);assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',new TextEncoder().encode('<svg/>'),cookie)).status,400);assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',new Uint8Array(100001),cookie)).status,413);assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',bytes,cookie)).status,200);let r=await call(env,'/media/sample-1');assert.equal(r.headers.get('Content-Type'),'image/webp');assert.deepEqual(new Uint8Array(await r.arrayBuffer()),bytes);data.members=data.members.filter(m=>m.id!=='sample-1');assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,200);assert.equal((await call(env,'/media/sample-1')).status,404);});
+test('icons require auth, validate magic and size, persist and remove with member',async()=>{const env=await setup(),cookie=await login(env);const data=structuredClone(sample);await call(env,'/api/admin/content','PUT',{revision:0,data},cookie);const bytes=new TextEncoder().encode('RIFF1234WEBPimage');assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',bytes)).status,401);assert.equal((await call(env,'/api/admin/icons/missing','PUT',bytes,cookie)).status,404);assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',new TextEncoder().encode('<svg/>'),cookie)).status,400);assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',new Uint8Array(100001),cookie)).status,413);assert.equal((await call(env,'/api/admin/icons/sample-1','PUT',bytes,cookie)).status,200);let r=await call(env,'/media/sample-1');assert.equal(r.headers.get('Content-Type'),'image/webp');assert.deepEqual(new Uint8Array(await r.arrayBuffer()),bytes);data.members=data.members.filter(m=>m.id!=='sample-1');for(const c of data.circles)c.memberIds=c.memberIds.filter(id=>id!=='sample-1');assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,200);assert.equal((await call(env,'/media/sample-1')).status,404);});
 test('session stored as hash, expiry and logout enforced',async()=>{const env=await setup();let cookie=await login(env);const token=cookie.split('=')[1];const row=env.DB.db.prepare('SELECT token_hash FROM sessions').get();assert.equal(row.token_hash,await sha(token));assert.equal((await call(env,'/api/admin/session','GET',undefined,cookie)).status,200);await call(env,'/api/admin/logout','POST',undefined,cookie);assert.equal((await call(env,'/api/admin/session','GET',undefined,cookie)).status,401);cookie=await login(env);env.DB.db.exec('UPDATE sessions SET expires_at=0');assert.equal((await call(env,'/api/admin/session','GET',undefined,cookie)).status,401);});
 test('static and JSON security headers; unknown routes fail closed',async()=>{const env=await setup();const r=await call(env,'/');assert.equal(r.headers.get('X-Content-Type-Options'),'nosniff');assert.match(r.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);const cookie=await login(env);assert.equal((await call(env,'/api/admin/unknown','POST',{},cookie)).status,404);assert.equal((await call(env,'/api/admin/session','DELETE',undefined,cookie)).status,404);});
 
@@ -67,7 +67,7 @@ test('uploaded icon deletion restores fallback; content and news can become empt
  assert.deepEqual((await (await call(env,'/api/public')).json()).icons,['sample-1']);
  assert.equal((await call(env,'/api/admin/icons/sample-1','DELETE',undefined,cookie)).status,200);
  assert.equal((await call(env,'/media/sample-1')).status,404);
- const data=structuredClone(sample);data.members=[];data.news=[];
+ const data=structuredClone(sample);data.members=[];data.news=[];data.circles=[];
  assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,200);
  const stored=await (await call(env,'/api/public')).json();assert.deepEqual(stored.data.members,[]);assert.deepEqual(stored.data.news,[]);assert.deepEqual(stored.icons,[]);
 });
@@ -76,7 +76,7 @@ test('circle introductions, free role names, multiple holders and visibility per
  const env=await setup(),cookie=await login(env),data=structuredClone(sample);
  data.circles[0].roles[0].memberIds=['sample-1','sample-2'];data.circles[0].roles[1].memberIds=['sample-1'];
  data.circles[1].roles=[{name:'案内係',memberIds:['sample-3']}];data.circles[1].enabled=false;
- data.circles[0].description='明日また会おう。';
+ data.circles[0].description='明日また会おう。';data.circles[0].memberIds.push('sample-2');
  assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,200);
  let saved=(await (await call(env,'/api/public')).json()).data;
  assert.deepEqual(saved.circles,data.circles);assert.deepEqual(saved.members,sample.members);assert.deepEqual(saved.news,sample.news);
@@ -97,4 +97,36 @@ test('legacy records gain clubs and gift link while saved edits and explicit rem
  let saved=await (await call(env,'/api/public')).json();assert.equal(saved.revision,7);assert.equal(saved.data.settings.description,'もとの紹介文');assert.deepEqual(saved.data.members,data.members);assert.deepEqual(saved.data.circles,sample.circles);assert.equal(saved.data.settings.giftUrl,'https://wos-giftcode.centurygame.com');
  saved.data.circles=[];saved.data.settings.giftUrl='';assert.equal((await call(env,'/api/admin/content','PUT',{revision:7,data:saved.data},cookie)).status,200);
  saved=await (await call(env,'/api/public')).json();assert.deepEqual(saved.data.circles,[]);assert.equal(saved.data.settings.giftUrl,'');
+});
+
+test('HTTP local login uses a Safari-compatible cookie and content survives a fresh read',async()=>{
+ const env=await setup();env.LOCAL_DEV_AUTH='true';
+ const local=(path,method='GET',data,cookie,origin='http://localhost:8787')=>worker.fetch(new Request('http://localhost:8787'+path,{method,headers:{Origin:origin,...(cookie?{Cookie:cookie}:{}),'Content-Type':'application/json'},...(data!==undefined?{body:JSON.stringify(data)}:{})}),env);
+ const response=await local('/api/login','POST',{password:'test-password-only'});assert.equal(response.status,200);
+ const set=response.headers.get('Set-Cookie');assert.match(set,/^ysk_local_session=/);assert.doesNotMatch(set,/\bSecure\b/);assert.match(set,/HttpOnly; SameSite=Strict/);const cookie=set.split(';')[0];
+ assert.equal((await local('/api/admin/session','GET',undefined,cookie)).status,200);
+ const data=structuredClone(sample);data.settings.description='Safariローカルで保存した文章';data.circles[0].description='専用ページの紹介';
+ assert.equal((await local('/api/admin/content','PUT',{revision:0,data},cookie)).status,200);
+ const saved=await (await local('/api/public')).json();assert.equal(saved.revision,1);assert.equal(saved.data.settings.description,data.settings.description);assert.equal(saved.data.circles[0].description,data.circles[0].description);
+ assert.equal((await local('/api/admin/content','PUT',{revision:1,data},cookie,'http://evil.test')).status,403);
+ const logout=await local('/api/admin/logout','POST',undefined,cookie);assert.match(logout.headers.get('Set-Cookie'),/^ysk_local_session=;/);assert.equal((await local('/api/admin/session','GET',undefined,cookie)).status,401);
+});
+test('local cookie exception never weakens HTTPS or non-loopback sessions',async()=>{
+ for(const [origin,flag]of [['https://ysk.test',true],['http://ysk.test',true],['https://localhost:8787',true],['http://localhost:8787',false]]){
+  const env=await setup();if(flag)env.LOCAL_DEV_AUTH='true';const r=await worker.fetch(new Request(origin+'/api/login',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({password:'test-password-only'})}),env);
+  assert.equal(r.status,200);const set=r.headers.get('Set-Cookie');assert.match(set,/^__Host-ysk_session=/);assert.match(set,/; Secure;/);
+ }
+ const env=await setup();env.LOCAL_DEV_AUTH='true';const production=await login(env);const token=production.split('=')[1];
+ assert.equal((await call(env,'/api/admin/session','GET',undefined,'ysk_local_session='+token)).status,401);
+});
+test('circle membership is validated, persisted and includes role holders',async()=>{
+ const env=await setup(),cookie=await login(env),data=structuredClone(sample);data.circles[0].memberIds=['sample-4'];data.circles[0].roles[0].memberIds=['sample-1'];
+ assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,200);let saved=(await (await call(env,'/api/public')).json()).data;
+ assert.deepEqual(saved.circles[0].memberIds,['sample-4','sample-1']);assert.deepEqual(saved.members,sample.members);
+ for(const values of [['unknown'],['sample-1','sample-1']]){data.circles[0].memberIds=values;assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,400);}
+ saved.members=saved.members.filter(m=>m.id!=='sample-1');for(const c of saved.circles){c.memberIds=c.memberIds.filter(id=>id!=='sample-1');for(const role of c.roles)role.memberIds=role.memberIds.filter(id=>id!=='sample-1');}
+ assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data:saved},cookie)).status,200);assert.deepEqual((await (await call(env,'/api/public')).json()).data.circles[0].memberIds,['sample-4']);
+});
+test('older circles infer membership from roles without inventing other members',async()=>{
+ const env=await setup(),data=structuredClone(sample);for(const c of data.circles)delete c.memberIds;data.circles[0].roles[0].memberIds=['sample-2'];env.DB.db.prepare('INSERT INTO content (id,revision,data) VALUES (1,3,?)').run(JSON.stringify(data));const saved=await (await call(env,'/api/public')).json();assert.deepEqual(saved.data.circles[0].memberIds,['sample-2']);assert.deepEqual(saved.data.circles[1].memberIds,[]);assert.equal(saved.revision,3);
 });

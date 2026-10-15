@@ -87,7 +87,7 @@ npm run test:runtime
 npm run build
 ```
 
-- `npm test`: 15件。認証、CSRF、CRUD、競合、画像、レート制限、セッション、初期設定、パスワード変更、異常入力を検証
+- `npm test`: 19件。認証、CSRF、CRUD、競合、画像、レート制限、セッション、初期設定、パスワード変更、異常入力を検証
 - `npm run test:runtime`: 一時workerd + 実D1 bindingでログイン・CRUD・画像BLOB往復・競合・削除・ログアウトを検証。本番DBには接続しません
 - `npm run build`: Sites用Workerを構築
 - `npm run dev:cloudflare`: 自分の端末で直接設置版をローカル開発（先に `npm run db:local`）
@@ -157,3 +157,17 @@ git pull --ff-only
 ```
 
 設定の控えは `git stash show -p` で確認できます。新しい直接設置版の設定先は `cloudflare/wrangler.jsonc` です。実際にCloudflareへ設置する際は、控えにある実際の `database_id` をそちらの `DB` bindingに設定します。古いroot設定をそのまま復元するとSites用設定と混同するため、`git stash pop` は行わずIDを転記してください。この版ではUI用のデータ形式だけを拡張しており、サークル用の追加DBマイグレーションは不要です。初期版からの更新では、前版で追加された管理者認証の0002も `npm run db:local` で適用されます。
+
+## サークル専用ページと保存の確認
+
+トップページの寝落ち部・猟友会カードにあるボタンから `/circle.html?id=sleep-club`、`/circle.html?id=hunting-club` へ進めます。サークル名・紹介文・役職と担当者・所属メンバーのアイコン、呼び名、サブアカウント、紹介文を表示します。登録済みの他サークルも同じページ構成で表示します。削除済み・非表示のサークルは案内だけを表示します。
+
+管理画面の「サークル」で「所属メンバー」を選択して保存します。役職担当者も自動的に所属メンバーへ含めます。アイコンやメンバー紹介は帝国のメンバー情報と共通なので、一度変更すると両方のページに反映されます。前版のサークルに所属リストがない場合は、既知の役職担当者だけを引き継ぎ、他の所属は管理画面で選択してください。
+
+### HTTPローカルでログインできるのに保存が401になる場合
+
+SafariなどがHTTP localhost上のSecure Cookieを拒否すると、パスワード照合は成功してもその後の編集リクエストにセッションが付かず401になります。`npm run dev:cloudflare` だけが `LOCAL_DEV_AUTH=true` を渡し、かつHTTP・loopbackホストの場合に限定して、HttpOnly / SameSite=Strict のローカル用Cookieを使います。HTTPSやloopback以外のホストでは、従来の `__Host-ysk_session; Secure` を必ず使います。デプロイ用の設定や認証の検証処理は緩めていません。
+
+更新後は開発サーバーを停止して `git pull --ff-only` → `npm run dev:cloudflare` で再起動し、同じ `http://localhost:8787` から再ログインしてください。パスワードの再設定やDBの作り直しは不要です。ログイン直後にもセッションを検証し、Cookieが保持できない場合は編集前に案内します。
+
+検証は19件の自動テストに加え、workerdと実D1 bindingで、HTTPSのセッション・保存・再読込、HTTP loopbackのセッション・保存・再読込、サークル所属・画像・競合・ログアウトを確認します。Safari実機の画面操作は別途必要です。

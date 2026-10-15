@@ -12,10 +12,10 @@ export const sample = {
     discordUrl:'', giftUrl:'https://wos-giftcode.centurygame.com', sample:true
   },
   circles:[
-    {id:'sleep-club',name:'寝落ち部',theme:'sleep',enabled:true,
+    {id:'sleep-club',name:'寝落ち部',theme:'sleep',enabled:true,memberIds:['sample-1','sample-4','sample-6'],
       description:'気づいたら朝。チャットの途中で、そっと夢のなかへ。寝落ちしがちな仲間たちが集まる、帝国内のゆるいサークルです。\n眠くなったら、無理せずおやすみ。また明日、元気に会いましょう。',
       roles:[{name:'部長',memberIds:[]},{name:'顧問',memberIds:[]}]},
-    {id:'hunting-club',name:'猟友会',theme:'forest',enabled:true,
+    {id:'hunting-club',name:'猟友会',theme:'forest',enabled:true,memberIds:['sample-2','sample-3','sample-5'],
       description:'帝国の仲間が集まる、もうひとつのサークル「猟友会」。\nここに活動内容や雰囲気を紹介していきます。詳しい紹介文は、メンバーに聞きながら少しずつ準備中です。',roles:[]}
   ],
   members:[

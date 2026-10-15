@@ -1,6 +1,11 @@
 import {sample} from './sample.js';
 const enc = new TextEncoder();
-const cookieName = '__Host-ysk_session';
+function cookieOptions(request,env){
+  const u=new URL(request.url);
+  const local=env.LOCAL_DEV_AUTH==='true'&&u.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(u.hostname);
+  return {name:local?'ysk_local_session':'__Host-ysk_session',secure:!local};
+}
+function cookieHeader(request,env,token,maxAge){const {name,secure}=cookieOptions(request,env);return `${name}=${token}; Path=/; HttpOnly; ${secure?'Secure; ':''}SameSite=Strict; Max-Age=${maxAge}`;}
 export const security = {'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",'Permissions-Policy':'camera=(), microphone=(), geolocation=()'};
 function json(data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{...security,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...extra}});}
 function fail(message,status=400){throw Object.assign(new Error(message),{status});}
@@ -47,12 +52,14 @@ export function validateContent(input){
       if(new Set(role.memberIds).size!==role.memberIds.length||role.memberIds.some(value=>typeof value!=='string'||!memberIds.has(value)))fail('役職の担当者は登録済みメンバーから選んでください');
       return {name,memberIds:[...role.memberIds]};
     });
-    return {id:id(c.id),name:str(c.name,60,true),description:str(c.description,3000),theme:c.theme,enabled:c.enabled,roles};
+    const selected=c.memberIds??[];
+    if(!Array.isArray(selected)||selected.length>120||new Set(selected).size!==selected.length||selected.some(value=>typeof value!=='string'||!memberIds.has(value)))fail('サークルの所属メンバーは登録済みメンバーから選んでください');
+    return {id:id(c.id),name:str(c.name,60,true),description:str(c.description,3000),theme:c.theme,enabled:c.enabled,roles,memberIds:[...new Set([...selected,...roles.flatMap(r=>r.memberIds)])]};
   });return {settings,members,news,circles};
 }
-async function getContent(db){const row=await db.prepare('SELECT revision, data FROM content WHERE id = 1').first();if(!row)return {revision:0,data:sample};const data=JSON.parse(row.data);data.settings={...sample.settings,...data.settings};const legacyCircles=data.circles===undefined;data.circles??=structuredClone(sample.circles);if(legacyCircles&&!data.settings.giftUrl)data.settings.giftUrl=sample.settings.giftUrl;return {revision:row.revision,data};}
-function sessionCookie(r){return r.headers.get('Cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'';}
-async function authenticate(r,env,config){const token=sessionCookie(r);if(!/^[a-f0-9]{64}$/.test(token))fail('ログインしてください',401);const hash=await sha(token);const row=await env.DB.prepare('SELECT token_hash, auth_fingerprint FROM sessions WHERE token_hash = ? AND expires_at > ?').bind(hash,Date.now()).first();if(!row||!validHash(config.hash)||row.auth_fingerprint!==await sha(config.hash))fail('セッションの有効期限が切れました',401);return hash;}
+async function getContent(db){const row=await db.prepare('SELECT revision, data FROM content WHERE id = 1').first();if(!row)return {revision:0,data:sample};const data=JSON.parse(row.data);data.settings={...sample.settings,...data.settings};const legacyCircles=data.circles===undefined;data.circles??=structuredClone(sample.circles);data.circles=data.circles.map(c=>({...c,memberIds:[...new Set([...(c.memberIds||[]),...c.roles.flatMap(r=>r.memberIds)])]}));if(legacyCircles&&!data.settings.giftUrl)data.settings.giftUrl=sample.settings.giftUrl;return {revision:row.revision,data};}
+function sessionCookie(r,env){const cookieName=cookieOptions(r,env).name;return r.headers.get('Cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'';}
+async function authenticate(r,env,config){const token=sessionCookie(r,env);if(!/^[a-f0-9]{64}$/.test(token))fail('ログインしてください',401);const hash=await sha(token);const row=await env.DB.prepare('SELECT token_hash, auth_fingerprint FROM sessions WHERE token_hash = ? AND expires_at > ?').bind(hash,Date.now()).first();if(!row||!validHash(config.hash)||row.auth_fingerprint!==await sha(config.hash))fail('セッションの有効期限が切れました',401);return hash;}
 async function api(request,env){
   const path=new URL(request.url).pathname;
   if(!env.DB)return json({error:'D1の接続設定が必要です'},503);
@@ -78,7 +85,7 @@ async function api(request,env){
     const [,salt,expected]=hashValue.split('$');if(!equal(await passwordHash(data.password,salt),expected))fail('パスワードが違います',401);
     const token=[...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('');
     await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now),env.DB.prepare('INSERT INTO sessions (token_hash,expires_at,auth_fingerprint) VALUES (?,?,?)').bind(await sha(token),now+8*60*60*1000,await sha(hashValue))]);
-    return json({ok:true},200,{'Set-Cookie':`${cookieName}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800`});
+    return json({ok:true},200,{'Set-Cookie':cookieHeader(request,env,token,28800)});
   }
   if(!path.startsWith('/api/admin/'))fail('見つかりません',404);
   const session=await authenticate(request,env,config);
@@ -91,9 +98,9 @@ async function api(request,env){
       env.DB.prepare('INSERT INTO admin_auth (id,password_hash,owner_id,updated_at) VALUES (1,?,?,?) ON CONFLICT(id) DO UPDATE SET password_hash=excluded.password_hash,updated_at=excluded.updated_at').bind(hash,config.stored?.owner_id||null,Date.now()),
       env.DB.prepare('DELETE FROM sessions')
     ]);
-    return json({ok:true},200,{'Set-Cookie':`${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`});
+    return json({ok:true},200,{'Set-Cookie':cookieHeader(request,env,'',0)});
   }
-  if(path==='/api/admin/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(session).run();return json({ok:true},200,{'Set-Cookie':`${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`});}
+  if(path==='/api/admin/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(session).run();return json({ok:true},200,{'Set-Cookie':cookieHeader(request,env,'',0)});}
   if(path==='/api/admin/content'&&request.method==='PUT'){
     const payload=await readJson(request);const {revision,data}=payload||{};if(!Number.isInteger(revision)||revision<0)fail('更新番号を確認してください');const clean=validateContent(data);let result;
     if(revision===0)result=await env.DB.prepare('INSERT OR IGNORE INTO content (id,revision,data) VALUES (1,1,?)').bind(JSON.stringify(clean)).run();
