@@ -1,6 +1,6 @@
 export const sample = {
   settings: {
-    name:'神聖アライグマ帝国', tag:'YSK', game:'ホワイトアウトサバイバル',
+    name:'神聖アライグマ帝国', tag:'YSK', kingdom:'1916', game:'ホワイトアウトサバイバル',
     headline:'寒い世界に、\nあたたかい居場所を。',
     heroNote:'ここは、アライグマと仲間たちの小さな帝国。\n今日もいっしょに、雪国を生きていこう。',
     aboutTitle:'ひとりより、\nいっしょがあったかい。',

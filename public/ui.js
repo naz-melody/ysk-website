@@ -1,3 +1,4 @@
+export function kingdomLabel(value){const name=String(value||'').trim();return /^\d+$/.test(name)?'第'+name+'王国':name;}
 export function el(tag,text,css){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(css)node.className=css;return node;}
 export function animal(name,css=''){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class',css);svg.setAttribute('aria-hidden','true');const use=document.createElementNS('http://www.w3.org/2000/svg','use');use.setAttribute('href','/animals.svg#'+name);svg.append(use);return svg;}
 export function memberCard(member,icons,roles=[]){
