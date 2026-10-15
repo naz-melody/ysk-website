@@ -18,4 +18,6 @@
 @media(prefers-reduced-motion:reduce){.circle-animal,.sleep-zzz,.forest-leaf{animation:none}}
 .circle-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.circle-page-link{margin-top:12px;gap:10px}.circle-copy h3{overflow-wrap:anywhere}
 
-.kingdom-badge{display:inline-flex;align-items:center;border:1px solid #cbdcda;background:#f6faf7;color:#5b7d83;border-radius:25px;padding:4px 14px;font-size:11px;letter-spacing:.08em;margin:10px 0 0}.hero-copy .kingdom-badge+h1{margin-top:15px}
+
+.header #brand-kingdom{font-size:10px;letter-spacing:.05em;color:#7a9095;line-height:1.5}
+@media(max-width:700px){.header #brand-kingdom{font-size:8px}}
