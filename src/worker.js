@@ -36,9 +36,21 @@ export function validateContent(input){
   for (const key of ['heroNote','aboutTitle','value1Title','value1Body','value2Title','value2Body','value3Title','value3Body']) settings[key]=str(s[key] ?? sample.settings[key],key==='heroNote'?500:200);
   const seen=new Set();const id=(v)=>{if(typeof v!=='string'||!/^[a-zA-Z0-9_-]{1,64}$/.test(v)||seen.has(v))fail('IDが不正または重複しています');seen.add(v);return v;};
   const members=input.members.map(m=>{if(!m||!Number.isInteger(m.rank)||m.rank<1||m.rank>5||!Array.isArray(m.alts)||m.alts.length>10)fail('階級またはサブアカウントを確認してください');return {id:id(m.id),name:str(m.name,60,true),rank:m.rank,alts:m.alts.map(a=>str(a,60,true)),bio:str(m.bio,1000),avatar:['raccoon','bear','fox','rabbit','penguin'].includes(m.avatar)?m.avatar:'raccoon',color:['peach','blue','yellow','mint','lavender'].includes(m.color)?m.color:'blue'};});
-  seen.clear();const news=input.news.map(n=>{if(!n||typeof n.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(n.date)||!Number.isFinite(Date.parse(n.date))||new Date(n.date).toISOString().slice(0,10)!==n.date)fail('日付を確認してください');return {id:id(n.id),title:str(n.title,120,true),body:str(n.body,5000,true),date:n.date,category:str(n.category,30,true),pinned:n.pinned===true};});return {settings,members,news};
+  seen.clear();const news=input.news.map(n=>{if(!n||typeof n.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(n.date)||!Number.isFinite(Date.parse(n.date))||new Date(n.date).toISOString().slice(0,10)!==n.date)fail('日付を確認してください');return {id:id(n.id),title:str(n.title,120,true),body:str(n.body,5000,true),date:n.date,category:str(n.category,30,true),pinned:n.pinned===true};});const inputCircles=input.circles??sample.circles;
+  if(!Array.isArray(inputCircles)||inputCircles.length>16)fail('サークルは16件まで登録できます');
+  const memberIds=new Set(members.map(m=>m.id));seen.clear();
+  const circles=inputCircles.map(c=>{
+    if(!c||!Array.isArray(c.roles)||c.roles.length>20||typeof c.enabled!=='boolean'||!['sleep','forest'].includes(c.theme))fail('サークルの設定を確認してください');
+    const names=new Set();const roles=c.roles.map(role=>{
+      if(!role||!Array.isArray(role.memberIds)||role.memberIds.length>120)fail('役職の担当者を確認してください');
+      const name=str(role.name,40,true);if(names.has(name))fail('同じサークル内の役職名は重複できません');names.add(name);
+      if(new Set(role.memberIds).size!==role.memberIds.length||role.memberIds.some(value=>typeof value!=='string'||!memberIds.has(value)))fail('役職の担当者は登録済みメンバーから選んでください');
+      return {name,memberIds:[...role.memberIds]};
+    });
+    return {id:id(c.id),name:str(c.name,60,true),description:str(c.description,3000),theme:c.theme,enabled:c.enabled,roles};
+  });return {settings,members,news,circles};
 }
-async function getContent(db){const row=await db.prepare('SELECT revision, data FROM content WHERE id = 1').first();if(!row)return {revision:0,data:sample};const data=JSON.parse(row.data);data.settings={...sample.settings,...data.settings};return {revision:row.revision,data};}
+async function getContent(db){const row=await db.prepare('SELECT revision, data FROM content WHERE id = 1').first();if(!row)return {revision:0,data:sample};const data=JSON.parse(row.data);data.settings={...sample.settings,...data.settings};const legacyCircles=data.circles===undefined;data.circles??=structuredClone(sample.circles);if(legacyCircles&&!data.settings.giftUrl)data.settings.giftUrl=sample.settings.giftUrl;return {revision:row.revision,data};}
 function sessionCookie(r){return r.headers.get('Cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'';}
 async function authenticate(r,env,config){const token=sessionCookie(r);if(!/^[a-f0-9]{64}$/.test(token))fail('ログインしてください',401);const hash=await sha(token);const row=await env.DB.prepare('SELECT token_hash, auth_fingerprint FROM sessions WHERE token_hash = ? AND expires_at > ?').bind(hash,Date.now()).first();if(!row||!validHash(config.hash)||row.auth_fingerprint!==await sha(config.hash))fail('セッションの有効期限が切れました',401);return hash;}
 async function api(request,env){

@@ -71,3 +71,30 @@ test('uploaded icon deletion restores fallback; content and news can become empt
  assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,200);
  const stored=await (await call(env,'/api/public')).json();assert.deepEqual(stored.data.members,[]);assert.deepEqual(stored.data.news,[]);assert.deepEqual(stored.icons,[]);
 });
+
+test('circle introductions, free role names, multiple holders and visibility persist',async()=>{
+ const env=await setup(),cookie=await login(env),data=structuredClone(sample);
+ data.circles[0].roles[0].memberIds=['sample-1','sample-2'];data.circles[0].roles[1].memberIds=['sample-1'];
+ data.circles[1].roles=[{name:'案内係',memberIds:['sample-3']}];data.circles[1].enabled=false;
+ data.circles[0].description='明日また会おう。';
+ assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,200);
+ let saved=(await (await call(env,'/api/public')).json()).data;
+ assert.deepEqual(saved.circles,data.circles);assert.deepEqual(saved.members,sample.members);assert.deepEqual(saved.news,sample.news);
+ data.circles.push({id:'new-club',name:'新しい集まり',description:'紹介文',theme:'forest',enabled:true,roles:[]});
+ assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,200);
+ data.circles=[];assert.equal((await call(env,'/api/admin/content','PUT',{revision:2,data},cookie)).status,200);
+ saved=(await (await call(env,'/api/public')).json()).data;assert.deepEqual(saved.circles,[]);assert.deepEqual(saved.members,sample.members);
+});
+test('circle validation rejects unknown members, duplicate role names and excessive text',async()=>{
+ const env=await setup(),cookie=await login(env);
+ for(const change of [d=>d.circles[0].roles[0].memberIds=['missing'],d=>d.circles[0].roles[1].name='部長',d=>d.circles[1].id=d.circles[0].id,d=>d.circles[0].description='x'.repeat(3001),d=>d.circles[0].roles[0].memberIds=['sample-1','sample-1'],d=>d.circles[0].roles[0].name='',d=>d.circles[0].roles=Array.from({length:21},(_,i)=>({name:'役職'+i,memberIds:[]}))]){
+  const data=structuredClone(sample);change(data);assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,400);
+ }
+});
+test('legacy records gain clubs and gift link while saved edits and explicit removals survive',async()=>{
+ const env=await setup(),cookie=await login(env),data=structuredClone(sample);delete data.circles;data.settings.giftUrl='';data.settings.description='もとの紹介文';
+ env.DB.db.prepare('INSERT INTO content (id,revision,data) VALUES (1,7,?)').run(JSON.stringify(data));
+ let saved=await (await call(env,'/api/public')).json();assert.equal(saved.revision,7);assert.equal(saved.data.settings.description,'もとの紹介文');assert.deepEqual(saved.data.members,data.members);assert.deepEqual(saved.data.circles,sample.circles);assert.equal(saved.data.settings.giftUrl,'https://wos-giftcode.centurygame.com');
+ saved.data.circles=[];saved.data.settings.giftUrl='';assert.equal((await call(env,'/api/admin/content','PUT',{revision:7,data:saved.data},cookie)).status,200);
+ saved=await (await call(env,'/api/public')).json();assert.deepEqual(saved.data.circles,[]);assert.equal(saved.data.settings.giftUrl,'');
+});

@@ -26,9 +26,9 @@ try {
  assert.equal((await call('/api/admin/content','PUT',{revision:0,data:original.data})).status,401);
  response=await call('/api/login','POST',{password});assert.equal(response.status,200);
  const cookie=response.headers.get('Set-Cookie').split(';')[0];
- const data=structuredClone(original.data);data.settings.description='実際のD1への保存確認';data.news.push({id:'runtime-news',date:'2026-10-16',title:'テスト',body:'追加と削除の確認',category:'確認',pinned:false});
+ const data=structuredClone(original.data);data.circles[0].roles[0].memberIds=['sample-1'];data.circles[1].enabled=false;data.settings.description='実際のD1への保存確認';data.news.push({id:'runtime-news',date:'2026-10-16',title:'テスト',body:'追加と削除の確認',category:'確認',pinned:false});
  response=await call('/api/admin/content','PUT',{revision:0,data},cookie);assert.equal(response.status,200);
- assert.equal((await (await call('/api/public')).json()).data.settings.description,data.settings.description);
+ const stored=(await (await call('/api/public')).json()).data;assert.equal(stored.settings.description,data.settings.description);assert.deepEqual(stored.circles,data.circles);
  const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aVn0AAAAASUVORK5CYII=','base64'));
  response=await call('/api/admin/icons/sample-1','PUT',png,cookie);assert.equal(response.status,200);
  response=await call('/media/sample-1');assert.equal(response.headers.get('Content-Type'),'image/png');assert.deepEqual(new Uint8Array(await response.arrayBuffer()),png);
@@ -39,5 +39,5 @@ try {
  assert.deepEqual((await (await call('/api/public')).json()).data,original.data);
  assert.equal((await call('/api/admin/logout','POST',undefined,cookie)).status,200);
  assert.equal((await call('/api/admin/session','GET',undefined,cookie)).status,401);
- console.log('PASS: workerd + real D1 binding: login, CRUD, BLOB upload/read/delete, conflict, restore, logout');
+ console.log('PASS: workerd + real D1 binding: login, circles/roles, CRUD, BLOB upload/read/delete, conflict, restore, logout');
 }finally{await mf?.dispose();await rm(temp,{recursive:true,force:true});}

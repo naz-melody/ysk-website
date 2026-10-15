@@ -9,8 +9,15 @@ export const sample = {
     value3Title:'楽しむときは、いっしょに', value3Body:'勝った日も負けた日も、笑える仲間と。',
     description:'雪の向こうで出会った、ちょっと愉快な仲間たち。助け合って、笑い合って、ときどき本気で戦って。神聖アライグマ帝国は、自分のペースも仲間との時間も大切にする同盟です。',
     recruitment:'はじめましても、おかえりも大歓迎。あなたのペースで、この雪国の毎日を一緒に楽しみませんか？',
-    discordUrl:'', giftUrl:'', sample:true
+    discordUrl:'', giftUrl:'https://wos-giftcode.centurygame.com', sample:true
   },
+  circles:[
+    {id:'sleep-club',name:'寝落ち部',theme:'sleep',enabled:true,
+      description:'気づいたら朝。チャットの途中で、そっと夢のなかへ。寝落ちしがちな仲間たちが集まる、帝国内のゆるいサークルです。\n眠くなったら、無理せずおやすみ。また明日、元気に会いましょう。',
+      roles:[{name:'部長',memberIds:[]},{name:'顧問',memberIds:[]}]},
+    {id:'hunting-club',name:'猟友会',theme:'forest',enabled:true,
+      description:'帝国の仲間が集まる、もうひとつのサークル「猟友会」。\nここに活動内容や雰囲気を紹介していきます。詳しい紹介文は、メンバーに聞きながら少しずつ準備中です。',roles:[]}
+  ],
   members:[
     {id:'sample-1',name:'ぽん皇帝',rank:5,alts:['ぽんの別荘','こぽん'],bio:'帝国のお世話係。みんなが楽しく過ごせる場所を目指しています。',avatar:'raccoon',color:'peach'},
     {id:'sample-2',name:'ゆきまる',rank:4,alts:['こゆき'],bio:'困ったときはおまかせを。雪の日も、イベントの日も、のんびり一緒に。',avatar:'bear',color:'blue'},
