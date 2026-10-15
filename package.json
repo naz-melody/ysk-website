@@ -1,0 +1,5 @@
+{
+  "name": "ysk-website", "version": "1.0.0", "private": true, "type": "module",
+  "scripts": {"dev":"wrangler dev", "deploy":"wrangler deploy", "test":"node --test", "db:local":"wrangler d1 migrations apply ysk-db --local", "db:remote":"wrangler d1 migrations apply ysk-db --remote", "password":"node scripts/set-password.mjs"},
+  "devDependencies": {"wrangler":"^4.0.0"}
+}
