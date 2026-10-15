@@ -2,6 +2,11 @@ export const sample = {
   settings: {
     name:'神聖アライグマ帝国', tag:'YSK', game:'ホワイトアウトサバイバル',
     headline:'寒い世界に、\nあたたかい居場所を。',
+    heroNote:'ここは、アライグマと仲間たちの小さな帝国。\n今日もいっしょに、雪国を生きていこう。',
+    aboutTitle:'ひとりより、\nいっしょがあったかい。',
+    value1Title:'自分のペースで', value1Body:'日々の暮らしも、ゲームも大切に。',
+    value2Title:'困ったら、おたがいさま', value2Body:'小さな助け合いを、毎日の力に。',
+    value3Title:'楽しむときは、いっしょに', value3Body:'勝った日も負けた日も、笑える仲間と。',
     description:'雪の向こうで出会った、ちょっと愉快な仲間たち。助け合って、笑い合って、ときどき本気で戦って。神聖アライグマ帝国は、自分のペースも仲間との時間も大切にする同盟です。',
     recruitment:'はじめましても、おかえりも大歓迎。あなたのペースで、この雪国の毎日を一緒に楽しみませんか？',
     discordUrl:'', giftUrl:'', sample:true

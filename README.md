@@ -1,130 +1,130 @@
 # 神聖アライグマ帝国［YSK］
 
-ホワイトアウトサバイバルの同盟紹介サイト。オリジナルSVGの動物、雪景色、アニメーション、スマートフォン対応の公開ページと、パスワードで保護した編集APIを備えた管理画面です。
+ホワイトアウトサバイバルの同盟紹介サイトと管理画面です。前回の `feat/ysk-clan-site` を引き継いでいます。初期の文章・6人のメンバー・3件のお知らせはすべてサンプルです。
 
-## できること
+## 非公開で使う
 
-- 同盟名・タグ・ゲーム名・見出し・紹介文・募集文の編集
-- メンバーの追加・変更・削除、R5〜R1の階級設定、サブアカウントの複数登録
-- アイコン画像のアップロード・差し替え・削除（ブラウザーで256pxの正方形に中央切り抜き、最大100KB）
-- お知らせの追加・変更・削除、日付・分類・上部固定
-- Discord・ギフトコード入力先の設定。未設定時は「準備中」表示
-- サンプル情報の表示切替、アニメーション停止、OSの「視差効果を減らす」への対応
+- 確認用サイト: https://ysk-raccoon-empire.foamycat513.chatgpt.site
+- 管理画面: https://ysk-raccoon-empire.foamycat513.chatgpt.site/admin.html
+- サイト全体は所有者のみ。ChatGPTへのログインが必要です。URLだけを渡しても他人は閲覧できません。
+- 初回は管理画面で12〜128文字のパスワードを自分で設定します。以後はそのパスワードで管理画面へログインします。
+- 保存内容は端末内ではなくD1に保存されます。別端末からも同じ内容を利用できます。
+- 各フォームの「保存」で紹介ページに反映します。サイト全体のアクセス範囲は変わりません。
+- 管理画面の「パスワード」で変更すると、すべての管理端末のセッションが失効します。
+- 同時編集で古い内容を保存した場合は拒否します。「最新の内容を読み込み直す」で再取得してください。
 
-**初期内容はすべてサンプルです。実際のメンバー・方針・活動実績ではありません。** 初回は6人の動物アイコン付きメンバーと3件のお知らせを表示します。管理画面で保存するまでは初期内容を表示し、保存後はD1の内容を使用します。
+このブランチをmainへマージする操作、一般公開、共有範囲の変更、独自ドメイン設定は別の判断です。この実装作業では行いません。
 
-## 使用サービス
+## 機能
 
-自分のCloudflareアカウントの **Workers Free + D1** のみを使用します。R2、Access、外部CMS、外部の画像・フォントサービスは使用しません。有料プランへの変更や支払い方法の登録を行う手順はありません。Cloudflare側で有料契約を選択しないでください。無料枠の範囲や制限は公式ドキュメントをご確認ください。
+- 紹介: 同盟名・タグ・ゲーム名・トップ見出し・補足・紹介見出し・紹介文・3つの活動方針・募集文を編集
+- メンバー: 追加・編集・削除、R5〜R1、呼び名、サブアカウント名（最大10個）、紹介文、標準動物アイコン・背景色、画像アップロード・削除
+- メンバー表示: 階級順、R5〜R1の絞り込み、呼び名とサブアカウント名の検索
+- お知らせ: 追加・編集・削除、日付・分類・本文・固定表示
+- リンク: Discord招待とギフトコード入力先。未設定時は準備中と表示
+- スマートフォン対応、キーボード操作、アニメーション停止・OSの視差効果軽減設定に対応
 
-このコードをGitHubへ保存するだけでは公開されません。Cloudflareへの初回設置が必要です。GitHub Pagesだけではログイン・D1保存は動きません。
+メンバーは最大120人、お知らせは100件。内容全体の保存リクエストは450KB以内です。アイコンは元画像8MB以下のPNG/JPEG/WebPをブラウザーで中央切り抜きし、256×256px・100KB以下のWebPへ圧縮します。各画像はメンバー本文とは別に保存します。本文保存後に画像が失敗した場合は、画面にその旨を表示します。
 
-## 初回設置（Mac / Windows / Linux）
+## 認証と保存の設計
 
-Node.js 22以降とGitをインストールした端末で、ターミナルを開きます。WindowsではVSCodeの「ターミナル」から「新しいターミナル」を開き、右上の▼から「Command Prompt（コマンドプロンプト）」を選ぶと、以下をそのまま実行できます。
+| 用途 | 構成 |
+| --- | --- |
+| 今回の確認用サイトの閲覧制限 | Sitesの所有者限定アクセス（プラットフォームのChatGPT認証） |
+| 管理操作 | 独立した管理者パスワード、サーバー側で認証・操作ごとに検証 |
+| 文章・メンバー・お知らせ | Cloudflare D1のJSONレコードと更新番号 |
+| アイコン | D1 BLOB、1枚100KB以下。120枚で約12MBまで |
+| セッション | D1。8時間、ランダム32バイトのトークンのSHA-256のみ保存 |
+| パスワード | ソルト付きPBKDF2-SHA256（100,000回）のハッシュのみ保存 |
 
-### 1. コード取得とCloudflareログイン
+支払い方法の登録を前提にせず、R2・Access・外部CMSは使用しません。小さな同盟サイトでは文章と縮小アイコンをD1へ保存する構成で十分運用可能です。一般的な大容量画像置き場としてD1を使う設計ではありません。
+
+Cloudflareへ自分で設置する場合、Workers Freeは動的リクエスト100,000/日・CPU 10ms/リクエスト、D1 Freeは500MB/DB・読み取り500万行/日・書き込み10万行/日です（2026-10-15公式資料確認）。120枚すべてのアイコンと本文でも容量は約13MB以内です。実際の上限はDB索引などの使用量も含みます。無料枠を超えた場合は処理が制限されるため、ダッシュボードで使用量を確認してください。ログインの暗号処理を含め、本番のCPU使用量は自身のCloudflareアカウントで確認します。
+
+今回の確認用サイトはSitesが提供するCloudflare実行環境です。ユーザー自身のCloudflareアカウントへの接続・リソース作成・有料プラン契約は行っていません。上の無料枠は自分のCloudflareに移す場合の目安で、Sitesの独立した利用条件を変更するものではありません。
+
+## セキュリティ上の実装
+
+- HttpOnly / Secure / SameSite=Strict の `__Host-` Cookie。セッショントークンをブラウザーJSに渡しません。
+- 書き込みとログインは同一Originのみ。CSRF・外部サイトからの操作を拒否します。
+- ログイン試行は送信元IPのハッシュごとに15分5回まで。期限切れのレート制限を掃除します。
+- SQLはバインド値。文章はtextContentで描画し、HTMLとして解釈しません。
+- リンクはHTTPS限定。画像はサイズ・MIME・PNG/JPEG/WebPのマジックバイトを検証。SVG/HTMLのアップロードを拒否します。
+- APIはno-store、CSP・nosniff等を設定。アイコンは再検証してから表示します。
+- パスワード変更・CLIリセットで既存セッションを失効。Secretの変更でも認証フィンガープリントで失効します。
+- 初期設定APIは `PRIVATE_SETUP_ENABLED=true` かつプラットフォーム由来のユーザーIDがあり、パスワード未設定の場合だけ使用可能です。公開運用へ移るときはこの環境変数を削除します。Cloudflare直接設置では設定しません。
+- robots/noindexは検索エンジン向け補助です。非公開の保護はSitesのアクセス制御で行います。
+
+## 構造とデザイン変更
+
+- `public/theme.css`: 色・書体のトークン。雰囲気変更の入口
+- `public/style.css`, `public/admin.css`: レイアウト・アニメーション・管理画面
+- `public/index.html`, `public/admin.html`: ページ構造
+- `public/app.js`, `public/admin.js`: 表示・編集UI。外部のフォントや画像サービスに依存しません
+- `public/animals.svg`: オリジナルの標準動物アイコン
+- `src/worker.js`: 認証・CRUD・D1・画像API。表示コードから独立
+- `src/sample.js`: 空のDBで表示するサンプル。保存済みデータは通常の再デプロイで上書きしません
+- `db/schema.ts`, `drizzle/`: Sitesでのスキーマとマイグレーション
+- `migrations/`: Cloudflare直接設置でのマイグレーション。既存の0001に0002を追加
+- `.openai/hosting.json`, `build/`, `vite.config.ts`: Sitesのホスティング連携
+- `cloudflare/wrangler.jsonc`: 自分のCloudflareへの直接設置設定
+
+既存の `/admin.html`, `/api/public`, `/api/login`, `/api/admin/*`, `/media/:id` とデータ形式を維持しています。設定項目を追加したため、古いデータの不足項目は表示時に初期値で補います。
+
+## 開発と検証
+
+Node.js 22.13以降。WindowsのVSCode + WSL Ubuntuでも利用できます。
 
 ```bash
-git clone https://github.com/naz-melody/ysk-website.git
-cd ysk-website
-npm install
-npx wrangler login
-npx wrangler whoami
+corepack enable
+pnpm install --frozen-lockfile
+npm test
+npm run test:runtime
+npm run build
 ```
 
-CloudflareはWorkersの無料プランを使用します。ログインは自分のブラウザーで行ってください。認証情報をチャットやリポジトリへ貼り付ける必要はありません。
+- `npm test`: 12件。認証、CSRF、CRUD、競合、画像、レート制限、セッション、初期設定、パスワード変更、異常入力を検証
+- `npm run test:runtime`: 一時workerd + 実D1 bindingでログイン・CRUD・画像BLOB往復・競合・削除・ログアウトを検証。本番DBには接続しません
+- `npm run build`: Sites用Workerを構築
+- `npm run dev:cloudflare`: 自分の端末で直接設置版をローカル開発（先に `npm run db:local`）
 
-ブラウザーが開いたら、今回使うCloudflareアカウントで許可してください。別アカウントなら、ブラウザーのCloudflareからログアウトして正しいアカウントへ切り替え、ターミナルで `npx wrangler logout` → `npx wrangler login` → `npx wrangler whoami` の順に確認します。GitHubとCloudflareのログインは独立しており、今回のターミナル公開ではCloudflareのGitHubアプリ再インストールは不要です。GitHub連携による自動公開は別途任意で設定できます。
+ブラウザーでの画面操作・見た目の確認は別途行ってください。自動APIテストは見た目の検証を代替しません。
 
-### 2. データベースを作成
+## 自分のCloudflareへの移行（今回は実行しない）
+
+以下のdeployはworkers.devへ一般公開する操作です。所有者の公開承認後に実行してください。非公開のまま直接Cloudflareへ移す場合は、別途すべてのページ・API・画像を保護する設定が必要です。管理者ログインだけでは紹介ページの閲覧を制限できません。
 
 ```bash
+npx wrangler login
+npx wrangler whoami
 npx wrangler d1 create ysk-db
 ```
 
-出力に表示される `database_id` をコピーし、`wrangler.jsonc` の `REPLACE_WITH_YOUR_D1_DATABASE_ID` を置き換えます。`DB` というbinding名は変更しません。データベースを既に作った場合は `npx wrangler d1 list` でIDを確認できます。
+`cloudflare/wrangler.jsonc` の `REPLACE_WITH_YOUR_D1_DATABASE_ID` を作成結果のIDへ置き換え、`DB` binding名を維持します。
 
 ```bash
 npm run db:remote
-```
-
-### 3. 公開してパスワードを設定
-
-```bash
 npm run deploy
 npm run password
 ```
 
-`npm run password` は入力内容を表示せず、ソルト付きPBKDF2ハッシュをWrangler経由でCloudflare Secretへ登録します。パスワード自体はファイルにもGitHubにも保存しません。12文字以上の推測しづらいパスワードを設定します。秘密情報をチャットに送る必要はありません。パスワード未設定の間はログインできません。
+`npm run password` は非表示入力でSecretを登録し、過去に管理画面で設定したハッシュと既存セッションをクリアします。平文パスワードをチャット・Git・ファイルへ保存しません。サイト公開直後、パスワード未設定の間は管理操作を拒否します。
 
-`npm run deploy` の結果に表示される `https://ysk-website.<あなたのサブドメイン>.workers.dev` が公開URLです。管理画面はそのURLの `/admin.html` にあります。実際のURLはCloudflareの出力で確認してください。
+初期のD1は空のためサンプルが表示されます。Sitesの確認用DBと自分のCloudflare DBは別です。既に実データを入力した場合は、内容とiconsを明示的にバックアップ・移行してから切り替えます。自動では同期しません。
 
-### 4. 管理画面から編集
-
-1. 管理者パスワードでログイン。
-2. 「紹介・リンク」で文章、Discord、正しいギフトコード入力先を登録して保存。
-3. 「メンバー」でサンプルを変更・削除し、実際のメンバーを追加。
-4. 「お知らせ」で仮のお知らせを入れ替え。
-5. 実際の情報へ置き換えたら「サンプル情報である旨を表示する」を外して保存。
-
-メンバーは最大120人、各サブアカウント10個、お知らせ100件です。標準動物アイコンも自由に選べます。アイコン画像はD1へ保存します。元の画像は8MB以下、出力は100KB以下です。画像はメンバー本文の保存後にアップロードします。画像のアップロードが失敗した場合は、その旨を画面に表示するので画像を選び直してください。
-
-## 手元での開発
+既存Cloudflare設置から更新する場合は先にバックアップし、`npm run db:remote` で追加マイグレーションを適用します。通常のデプロイは保存済みデータを上書きしません。
 
 ```bash
-npm run db:local
-npm run dev
+npx wrangler d1 export ysk-db --remote --config cloudflare/wrangler.jsonc --output=backup.sql
 ```
 
-公開ページの表示にはローカルD1を使用します。ローカルで管理機能を検証する場合は `.dev.vars` に `ADMIN_PASSWORD_HASH` を設定してください（このファイルはGit管理対象外）。ハッシュは `pbkdf2$<16バイトのソルトの16進数32文字>$<PBKDF2-SHA256・100000回・32バイト出力の16進数64文字>` の形式です。Cookieは常にSecureなのでローカルのHTTPS設定またはlocalhostを使用してください。
-
-```bash
-npm test
-```
-
-Node.jsのSQLiteでD1互換ラッパーを使い、ログイン・CSRF・CRUD・競合更新・画像形式とサイズ・レート制限・ログアウトを検証します。Cloudflare実環境とブラウザー上の最終確認は設置後に行ってください。
-
-更新を取得して再公開する場合：
-
-```bash
-git pull
-npm install
-npm run deploy
-```
-
-DBの内容は通常のコード再公開では上書きしません。変更前のバックアップは `npx wrangler d1 export ysk-db --remote --output=backup.sql` で取得できます。バックアップには管理用データも含まれるのでGitへ追加せず、自分の端末で保管してください。
-
-## 認証・運用
-
-- 認証はサーバー側。未認証の編集APIは401を返します。
-- セッションは8時間、CookieはHttpOnly / Secure / SameSite=Strict。サーバーにはトークンのSHA-256だけを保存。
-- 更新・ログインAPIは同一Originを必須にし、他サイトからの書き込みを拒否。
-- ログイン試行は送信元IPのハッシュごとに15分あたり5回まで。判定はD1で共有。
-- SQLはバインド値、文章の描画はtextContentを使用。SVGやHTMLのアップロードは受け付けません。
-- 同時編集は更新番号で検出し、古い内容による上書きを拒否します。
-- ログイン画面のHTMLは公開ですが、内容の変更・アップロードにはログインが必要です。
-- パスワード変更は `npm run password`。既存セッションをすべて失効する場合は下記も実行。
-
-```bash
-npx wrangler d1 execute ysk-db --remote --command="DELETE FROM sessions"
-```
-
-## ファイル構成
-
-- `public/`: 公開ページ、管理画面、オリジナル動物SVG、CSS、ブラウザーJS
-- `src/worker.js`: API、認証、D1・画像処理
-- `src/sample.js`: 初期サンプルデータ
-- `migrations/`: DB初期設定
-- `scripts/set-password.mjs`: 非表示入力でのパスワード設定
-- `test/`: 認証・永続化の回帰テスト
+バックアップには認証ハッシュ・セッションを含むため、Gitへ追加せず安全に保管します。
 
 ## 公式資料
 
-- https://developers.cloudflare.com/workers/static-assets/
-- https://developers.cloudflare.com/workers/static-assets/binding/
-- https://developers.cloudflare.com/d1/get-started/
+- https://developers.cloudflare.com/workers/platform/limits/
+- https://developers.cloudflare.com/workers/platform/pricing/
 - https://developers.cloudflare.com/d1/platform/pricing/
+- https://developers.cloudflare.com/d1/platform/limits/
+- https://developers.cloudflare.com/workers/static-assets/
 - https://developers.cloudflare.com/workers/configuration/secrets/
-
-ゲーム公式素材やロゴは同梱していません。動物はこのサイト用のSVGです。ゲーム運営会社と関係のない非公式サイトであることを表示しています。
