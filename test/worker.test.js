@@ -130,3 +130,19 @@ test('circle membership is validated, persisted and includes role holders',async
 test('older circles infer membership from roles without inventing other members',async()=>{
  const env=await setup(),data=structuredClone(sample);for(const c of data.circles)delete c.memberIds;data.circles[0].roles[0].memberIds=['sample-2'];env.DB.db.prepare('INSERT INTO content (id,revision,data) VALUES (1,3,?)').run(JSON.stringify(data));const saved=await (await call(env,'/api/public')).json();assert.deepEqual(saved.data.circles[0].memberIds,['sample-2']);assert.deepEqual(saved.data.circles[1].memberIds,[]);assert.equal(saved.revision,3);
 });
+
+test('recruitment notice edits and visibility persist without changing other content',async()=>{
+ const env=await setup(),cookie=await login(env),data=structuredClone(sample);
+ data.settings.recruitmentNoticeTitle='仲間を募集しています！';data.settings.recruitmentNoticeBody='参加条件はこちら。\n気軽に声をかけてください。';data.settings.recruitmentNoticeEnabled=false;
+ assert.equal((await call(env,'/api/admin/content','PUT',{revision:0,data},cookie)).status,200);
+ let saved=(await (await call(env,'/api/public')).json()).data;
+ assert.equal(saved.settings.recruitmentNoticeTitle,data.settings.recruitmentNoticeTitle);assert.equal(saved.settings.recruitmentNoticeBody,data.settings.recruitmentNoticeBody);assert.equal(saved.settings.recruitmentNoticeEnabled,false);
+ assert.deepEqual(saved.members,sample.members);assert.deepEqual(saved.news,sample.news);assert.equal(saved.settings.recruitment,sample.settings.recruitment);
+ data.settings.recruitmentNoticeEnabled=true;assert.equal((await call(env,'/api/admin/content','PUT',{revision:1,data},cookie)).status,200);saved=(await (await call(env,'/api/public')).json()).data;assert.equal(saved.settings.recruitmentNoticeEnabled,true);
+ data.settings.recruitmentNoticeTitle='x'.repeat(121);assert.equal((await call(env,'/api/admin/content','PUT',{revision:2,data},cookie)).status,400);
+});
+test('old saved settings receive notice defaults while preserving edits',async()=>{
+ const env=await setup(),data=structuredClone(sample);for(const key of ['recruitmentNoticeTitle','recruitmentNoticeBody','recruitmentNoticeEnabled'])delete data.settings[key];data.settings.description='保存済みの紹介文';
+ env.DB.db.prepare('INSERT INTO content (id,revision,data) VALUES (1,5,?)').run(JSON.stringify(data));
+ const saved=await (await call(env,'/api/public')).json();assert.equal(saved.revision,5);assert.equal(saved.data.settings.description,'保存済みの紹介文');assert.equal(saved.data.settings.recruitmentNoticeTitle,'同盟員募集してます！');assert.equal(saved.data.settings.recruitmentNoticeEnabled,true);
+});

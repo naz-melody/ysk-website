@@ -8,6 +8,9 @@ export const sample = {
     value2Title:'困ったら、おたがいさま', value2Body:'小さな助け合いを、毎日の力に。',
     value3Title:'楽しむときは、いっしょに', value3Body:'勝った日も負けた日も、笑える仲間と。',
     description:'雪の向こうで出会った、ちょっと愉快な仲間たち。助け合って、笑い合って、ときどき本気で戦って。神聖アライグマ帝国は、自分のペースも仲間との時間も大切にする同盟です。',
+    recruitmentNoticeEnabled:true,
+    recruitmentNoticeTitle:'同盟員募集してます！',
+    recruitmentNoticeBody:'私たちと一緒にホワイトアウトサバイバルを楽しみませんか？活動方針や参加については、お気軽にお問い合わせください。',
     recruitment:'はじめましても、おかえりも大歓迎。あなたのペースで、この雪国の毎日を一緒に楽しみませんか？',
     discordUrl:'', giftUrl:'https://wos-giftcode.centurygame.com', sample:true
   },
